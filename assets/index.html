@@ -135,6 +135,65 @@
       transform: scale(0.95);
     }
 
+    .tool-btn.has-update {
+      border-color: var(--state-green-bg);
+      background: var(--state-green-bg);
+      color: #000000;
+    }
+
+    /* UPDATE TOAST / BANNER */
+    .update-toast {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 86px;
+      z-index: 999;
+      background: #141418;
+      color: #ffffff;
+      border: 2px solid var(--accent);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .update-toast.show {
+      display: flex;
+    }
+
+    .update-toast-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .update-dl-btn {
+      border: none;
+      background: var(--accent);
+      color: #000000;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 8px 12px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    .update-close-btn {
+      border: 1px solid #444;
+      background: transparent;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 8px 10px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
     /* BIG PACING TIMER BANNER (VISIBLE FROM AFAR) */
     .timer-banner {
       flex-shrink: 0;
@@ -470,6 +529,7 @@
         <button class="tool-btn" onclick="changeSize(-3)" aria-label="Smanji font">A−</button>
         <button class="tool-btn" onclick="changeSize(3)" aria-label="Povećaj font">A+</button>
         <button class="tool-btn" id="btnTheme" onclick="toggleTheme()" aria-label="Promijeni temu">☀️</button>
+        <button class="tool-btn" id="btnUpdate" onclick="checkForUpdates(true)" aria-label="Provjeri ažuriranja" title="Provjeri ažuriranja">🔄</button>
       </div>
     </header>
 
@@ -503,6 +563,14 @@
       <button class="nav-btn btn-prev" id="btnPrev" onclick="go(-1)">◀ NAZAD</button>
       <button class="nav-btn btn-next" id="btnNext" onclick="go(1)">SLJEDEĆI ▶</button>
     </footer>
+  </div>
+
+  <div class="update-toast" id="updateToast" role="status">
+    <div id="updateMsg">Provjeravam ažuriranja...</div>
+    <div class="update-toast-actions">
+      <button class="update-dl-btn" id="updateDlBtn" style="display:none;" onclick="downloadUpdate()">PREUZMI</button>
+      <button class="update-close-btn" onclick="hideToast()">✕</button>
+    </div>
   </div>
 
   <script>
@@ -891,10 +959,84 @@
     });
     requestWakeLock();
 
+    // In-app GitHub Release update checker
+    const CURRENT_VERSION = (window.AndroidBridge && window.AndroidBridge.getAppVersion)
+      ? window.AndroidBridge.getAppVersion()
+      : '1.2.0';
+    const LATEST_RELEASE_API = 'https://api.github.com/repos/KTihana/prompter-slajdovi/releases/latest';
+    const FALLBACK_APK_URL = 'https://github.com/KTihana/prompter-slajdovi/releases/latest/download/PodsjetnikSlajdovi.apk';
+    let pendingDownloadUrl = FALLBACK_APK_URL;
+    let toastTimeout = null;
+
+    function parseVer(v) {
+      return String(v || '0').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    }
+
+    function isNewer(remote, local) {
+      const r = parseVer(remote);
+      const l = parseVer(local);
+      for (let i = 0; i < Math.max(r.length, l.length); i++) {
+        const rv = r[i] || 0;
+        const lv = l[i] || 0;
+        if (rv > lv) return true;
+        if (rv < lv) return false;
+      }
+      return false;
+    }
+
+    function showToast(msg, showDownloadBtn, autoHideMs) {
+      const toast = document.getElementById('updateToast');
+      document.getElementById('updateMsg').textContent = msg;
+      document.getElementById('updateDlBtn').style.display = showDownloadBtn ? 'inline-block' : 'none';
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      if (autoHideMs) {
+        toastTimeout = setTimeout(hideToast, autoHideMs);
+      }
+    }
+
+    function hideToast() {
+      document.getElementById('updateToast').classList.remove('show');
+    }
+
+    function downloadUpdate() {
+      if (window.AndroidBridge && window.AndroidBridge.openUrl) {
+        window.AndroidBridge.openUrl(pendingDownloadUrl);
+      } else {
+        window.open(pendingDownloadUrl, '_blank');
+      }
+      hideToast();
+    }
+
+    async function checkForUpdates(manual) {
+      if (manual) showToast('Provjeravam ažuriranja...', false, 0);
+      try {
+        const res = await fetch(LATEST_RELEASE_API, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const latestTag = data.tag_name || '';
+        const apkAsset = (data.assets || []).find(a => a.name && a.name.endsWith('.apk'));
+        pendingDownloadUrl = (apkAsset && apkAsset.browser_download_url) ? apkAsset.browser_download_url : FALLBACK_APK_URL;
+
+        if (isNewer(latestTag, CURRENT_VERSION)) {
+          document.getElementById('btnUpdate').classList.add('has-update');
+          showToast(`Nova verzija ${latestTag} dostupna!`, true, 0);
+        } else if (manual) {
+          showToast(`Aplikacija je ažurna (v${CURRENT_VERSION}) ✓`, false, 3000);
+        }
+      } catch (_) {
+        if (manual) {
+          showToast('Nema interneta ili GitHub nije dostupan.', false, 3000);
+        }
+      }
+    }
+
     // Init
     applySizes();
     applyTheme();
     setMode(mode);
+    // Silent background update check on launch (does nothing if offline)
+    setTimeout(() => checkForUpdates(false), 1500);
   </script>
 </body>
 </html>
