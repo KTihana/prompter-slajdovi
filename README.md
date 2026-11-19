@@ -4,7 +4,7 @@ Mobilna aplikacija za čitanje podsjetnika iz daljine tijekom izlaganja (način 
 
 ## Preuzmi aplikaciju za Android
 
-[![Preuzmi APK](https://img.shields.io/badge/PREUZMI_APK-v1.2.2-FFE600?style=for-the-badge&logo=android&logoColor=000000)](https://github.com/KTihana/prompter-slajdovi/releases/download/v1.2.2/PodsjetnikSlajdovi-v1.2.2.apk)
+[![Preuzmi APK](https://img.shields.io/badge/PREUZMI_APK-v1.2.3-FFE600?style=for-the-badge&logo=android&logoColor=000000)](https://github.com/KTihana/prompter-slajdovi/releases/download/v1.2.3/PodsjetnikSlajdovi-v1.2.3.apk)
 
 > **Kako instalirati na mobitelu:**
 > 1. Dodirni žuti gumb **PREUZMI APK** iznad.
